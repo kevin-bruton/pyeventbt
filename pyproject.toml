@@ -5,7 +5,7 @@ description = "Event-driven backtesting and live trading framework for Python an
 authors = ["Marti Castany, Alain Porto"]
 readme = "README.md"
 license = "Apache-2.0"
-homepage = "https://github.com/marticastany/pyeventbt"
+homepage = "https://pyeventbt.com"
 repository = "https://github.com/marticastany/pyeventbt"
 keywords = [
     "mt5",
