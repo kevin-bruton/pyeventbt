@@ -1337,6 +1337,83 @@ class TRIX(IIndicator):
         return TRIX._TRIX__compute_trix(close, period)
 
 
+class DeMarker(IIndicator):
+    """DeMarker indicator."""
+    
+    @staticmethod
+    @njit
+    def __compute_demarker(high: np.ndarray, low: np.ndarray, period: int) -> np.ndarray:
+        """
+        Compute DeMarker values using Numba for performance.
+        """
+        n = len(high)
+        demarker = np.empty(n, dtype=np.float64)
+        demarker[:] = np.nan
+        
+        demax = np.zeros(n, dtype=np.float64)
+        demin = np.zeros(n, dtype=np.float64)
+        
+        # Calculate DeMax and DeMin components
+        for i in range(1, n):
+            up_move = high[i] - high[i - 1]
+            down_move = low[i - 1] - low[i]
+            
+            if up_move > 0.0:
+                demax[i] = up_move
+            if down_move > 0.0:
+                demin[i] = down_move
+        
+        # Rolling SMA of DeMax and DeMin to form DeMarker
+        demax_sum = 0.0
+        demin_sum = 0.0
+        
+        for i in range(n):
+            demax_sum += demax[i]
+            demin_sum += demin[i]
+            
+            if i >= period:
+                demax_sum -= demax[i - period]
+                demin_sum -= demin[i - period]
+                
+                denominator = demax_sum + demin_sum
+                if denominator != 0.0:
+                    demarker[i] = demax_sum / denominator
+                else:
+                    demarker[i] = 0.5  # Neutral value when there is no movement
+        
+        return demarker
+    
+    @staticmethod
+    def compute(high: np.ndarray, low: np.ndarray, period: int = 14) -> np.ndarray:
+        """Calculate the DeMarker indicator values.
+        
+        Parameters:
+            high (np.ndarray): High prices as a numpy array.
+            low (np.ndarray): Low prices as a numpy array.
+            period (int): The number of periods for DeMarker calculation. Default is 14.
+        
+        Returns:
+            np.ndarray: The calculated DeMarker values as a numpy array (range 0 to 1).
+            
+        Usage:
+        ```python
+        high_prices = np.array([102, 104, 103, 105, 107])
+        low_prices = np.array([100, 101, 100, 102, 104])
+        demarker_values = DeMarker.compute(high_prices, low_prices, period=14)
+        ```
+        """
+        if period < 1:
+            raise ValueError("Period must be greater than 0.")
+        
+        n = len(high)
+        if len(low) != n:
+            raise ValueError("High and low arrays must have the same length.")
+        if n < period + 1:
+            raise ValueError(f"Array length must be at least {period + 1}")
+        
+        return DeMarker._DeMarker__compute_demarker(high, low, period)
+
+
 class Aroon(IIndicator):
     """Aroon indicator (Aroon Up and Aroon Down)."""
     
