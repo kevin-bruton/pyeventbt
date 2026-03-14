@@ -1242,6 +1242,101 @@ class ROC(IIndicator):
         return ROC._ROC__compute_roc(close, period)
 
 
+class TRIX(IIndicator):
+    """Triple Exponential Moving Average Oscillator (TRIX) indicator."""
+    
+    @staticmethod
+    @njit
+    def __compute_trix(close: np.ndarray, period: int) -> np.ndarray:
+        """
+        Compute TRIX values using Numba for performance.
+        """
+        n = len(close)
+        trix = np.empty(n, dtype=np.float64)
+        trix[:] = np.nan
+        
+        multiplier = 2.0 / (period + 1)
+        
+        ema1 = np.empty(n, dtype=np.float64)
+        ema2 = np.empty(n, dtype=np.float64)
+        ema3 = np.empty(n, dtype=np.float64)
+        ema1[:] = np.nan
+        ema2[:] = np.nan
+        ema3[:] = np.nan
+        
+        # First EMA
+        sma1_sum = 0.0
+        for i in range(period):
+            sma1_sum += close[i]
+        ema1_value = sma1_sum / period
+        ema1_start = period - 1
+        ema1[ema1_start] = ema1_value
+        
+        for i in range(ema1_start + 1, n):
+            ema1_value = (close[i] - ema1_value) * multiplier + ema1_value
+            ema1[i] = ema1_value
+        
+        # Second EMA (EMA of EMA1)
+        sma2_sum = 0.0
+        for i in range(ema1_start, ema1_start + period):
+            sma2_sum += ema1[i]
+        ema2_value = sma2_sum / period
+        ema2_start = ema1_start + period - 1
+        ema2[ema2_start] = ema2_value
+        
+        for i in range(ema2_start + 1, n):
+            ema2_value = (ema1[i] - ema2_value) * multiplier + ema2_value
+            ema2[i] = ema2_value
+        
+        # Third EMA (EMA of EMA2)
+        sma3_sum = 0.0
+        for i in range(ema2_start, ema2_start + period):
+            sma3_sum += ema2[i]
+        ema3_value = sma3_sum / period
+        ema3_start = ema2_start + period - 1
+        ema3[ema3_start] = ema3_value
+        
+        for i in range(ema3_start + 1, n):
+            ema3_value = (ema2[i] - ema3_value) * multiplier + ema3_value
+            ema3[i] = ema3_value
+        
+        # TRIX as one-period percentage change of the triple-smoothed EMA
+        for i in range(ema3_start + 1, n):
+            prev = ema3[i - 1]
+            if prev != 0.0:
+                trix[i] = 100.0 * (ema3[i] - prev) / prev
+            else:
+                trix[i] = 0.0
+        
+        return trix
+    
+    @staticmethod
+    def compute(close: np.ndarray, period: int = 15) -> np.ndarray:
+        """Calculate the TRIX indicator values.
+        
+        Parameters:
+            close (np.ndarray): Close prices as a numpy array.
+            period (int): The EMA period for each of the three smoothing passes. Default is 15.
+        
+        Returns:
+            np.ndarray: The calculated TRIX indicator values as a numpy array (percentage).
+            
+        Usage:
+        ```python
+        close_prices = np.array([100, 102, 101, 103, 105, 104, 106, 108, 107, 109])
+        trix_values = TRIX.compute(close_prices, period=15)
+        ```
+        """
+        if period < 1:
+            raise ValueError("Period must be greater than 0.")
+        
+        min_length = 3 * period - 1
+        if len(close) < min_length:
+            raise ValueError(f"Close array length must be at least {min_length}")
+        
+        return TRIX._TRIX__compute_trix(close, period)
+
+
 class Aroon(IIndicator):
     """Aroon indicator (Aroon Up and Aroon Down)."""
     
